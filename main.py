@@ -1,7 +1,6 @@
 import requests
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ===== CEK IP & CLOUDFLARE =====
 def cek_ip():
     print('========== CEK IP & CLOUDFLARE ==========\n', flush=True)
 
@@ -24,43 +23,50 @@ def cek_ip():
         server = r.headers.get('server', '?')
         cf_ray = r.headers.get('cf-ray', '?')
 
-        print(f'   Status : {status}', flush=True)
-        print(f'   Server : {server}', flush=True)
-        print(f'   CF-Ray : {cf_ray}', flush=True)
+        # Cek berapa lama harus nunggu
+        retry_after = r.headers.get('retry-after', '?')
+        x_ratelimit = r.headers.get('x-ratelimit-reset-after', '?')
+
+        print(f'   Status       : {status}', flush=True)
+        print(f'   Server       : {server}', flush=True)
+        print(f'   CF-Ray       : {cf_ray}', flush=True)
+        print(f'   Retry-After  : {retry_after} detik', flush=True)
+        print(f'   Rate Reset   : {x_ratelimit}', flush=True)
 
         if status == 200:
             hasil = '✅ IP AMAN! Bot bisa jalan normal'
+            warna = '#00ff00'
         elif status == 403:
             hasil = '❌ IP KENA BAN CLOUDFLARE! Pindah hosting!'
+            warna = '#ff0000'
         elif status == 429:
-            hasil = '⚠️ Rate limited, coba lagi nanti'
+            hasil = f'⚠️ Rate limited! Tunggu {retry_after} detik. Tapi IP TIDAK DI-BAN!'
+            warna = '#ffaa00'
         else:
             hasil = f'❓ Status tidak dikenal: {status}'
+            warna = '#888888'
+
+        # Cek body response
+        try:
+            body = r.json()
+            print(f'   Body: {body}', flush=True)
+        except:
+            print(f'   Body: {r.text[:200]}', flush=True)
 
     except Exception as e:
         hasil = f'💀 GAGAL TOTAL: {e}'
+        warna = '#ff0000'
+        retry_after = '?'
 
     print(f'\n{hasil}', flush=True)
     print('==========================================\n', flush=True)
 
-    return ip, hasil
+    return ip, hasil, warna
 
 
-# ===== WEB SERVER =====
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        ip, hasil = cek_ip()
-
-        # Tentuin warna berdasarkan hasil
-        if '✅' in hasil:
-            warna = '#00ff00'
-            emoji = '✅'
-        elif '❌' in hasil:
-            warna = '#ff0000'
-            emoji = '❌'
-        else:
-            warna = '#ffaa00'
-            emoji = '⚠️'
+        ip, hasil, warna = cek_ip()
 
         response = f"""
         <html>
@@ -72,7 +78,12 @@ class Handler(BaseHTTPRequestHandler):
             <h1>🔍 Discord IP Checker</h1>
             <hr style="border-color: #333;">
             <h2>🌐 IP Render: <span style="color: #00d4ff;">{ip}</span></h2>
-            <h2 style="color: {warna};">{emoji} {hasil}</h2>
+            <h2 style="color: {warna};">{hasil}</h2>
+            <hr style="border-color: #333;">
+            <h3>Penjelasan:</h3>
+            <p>200 = ✅ IP Aman</p>
+            <p>403 = ❌ IP Kena Ban Cloudflare</p>
+            <p>429 = ⚠️ Rate Limited (BUKAN ban, cuma disuruh sabar)</p>
             <hr style="border-color: #333;">
             <p style="color: #888;">Refresh halaman untuk cek ulang</p>
         </body>
@@ -95,12 +106,7 @@ def run_server():
     server.serve_forever()
 
 
-# ===== MAIN =====
 if __name__ == '__main__':
     print('\n🚀 Starting Discord IP Checker...\n', flush=True)
-
-    # Cek pertama kali saat start
     cek_ip()
-
-    # Jalanin web server
     run_server()
