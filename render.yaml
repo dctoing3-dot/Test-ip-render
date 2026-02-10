@@ -2,11 +2,7 @@ services:
   - type: web
     name: discord-ip-checker
     runtime: python
+    region: oregon  # Ganti: singapore, frankfurt, oregon
     buildCommand: pip install -r requirements.txt
-    startCommand: python -u main.py
+    startCommand: python main.py
     plan: free
-    envVars:
-      - key: PORT
-        value: 10000
-      - key: PYTHONUNBUFFERED
-        value: 1
